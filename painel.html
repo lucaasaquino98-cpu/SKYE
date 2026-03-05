@@ -786,21 +786,11 @@ function renderChartsDemo() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   PRODUTOS — CRUD COM SUPABASE
-   
-   MAPEAMENTO DE COLUNAS (tabela "produtos"):
-     nome        → nome do produto
-     preco       → preço (número, sem cedilha)
-     categoria   → categoria do produto
-     status      → "ativo" ou "inativo"
-     descricao   → descrição do produto
-     foto        → URL pública do Storage (bucket "produtos")
-══════════════════════════════════════════════════════════════ */
+/* ══ PRODUTOS ══ */
 let produtos         = [];
 let prodEditandoId   = null;
-let prodFotoBase64   = '';   // preview local antes do upload
-let prodFotoUrlAtual = null; // URL já salva no Storage (ao editar)
+let prodFotoBase64   = '';
+let prodFotoUrlAtual = null;
 
 function previewFoto(input) {
   const file = input.files[0];
@@ -852,7 +842,6 @@ async function carregarProdutos() {
   }
 }
 
-/* ── salvarProduto: faz upload real para o Storage e usa nomes corretos de colunas ── */
 async function salvarProduto() {
   const nome      = document.getElementById('prodNome').value.trim();
   const categoria = document.getElementById('prodCat').value;
@@ -860,17 +849,20 @@ async function salvarProduto() {
   const status    = document.getElementById('prodStatus').value;
   const descricao = document.getElementById('prodDesc').value.trim();
   if (!nome) { toast('Informe o nome do produto.', 'error'); return; }
+
   const btn = document.getElementById('btnSalvarProd');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>Salvando...';
+
   try {
-    // ── Upload da foto para o Supabase Storage ────────────
-    let fotoUrl = prodFotoUrlAtual || null; // mantém URL anterior se não trocar foto
+    let imagemUrl = prodFotoUrlAtual || null;
+
     const arquivoFoto = document.getElementById('prodFoto').files[0];
     if (arquivoFoto && sb) {
       btn.innerHTML = '<div class="spinner"></div>Enviando foto...';
       const ext     = arquivoFoto.name.split('.').pop().toLowerCase();
-      const nomeArq = produto_${Date.now()}.${ext};
+      const nomeArq = `produto_${Date.now()}.${ext}`;
+
       const { error: errUp } = await sb.storage
         .from('produtos')
         .upload(nomeArq, arquivoFoto, { upsert: true, contentType: arquivoFoto.type });
@@ -927,77 +919,22 @@ async function salvarProduto() {
   }
 }
 
-      if (errUp) {
-        console.warn('Upload de foto falhou:', errUp.message);
-        toast('⚠️ Foto não salva (' + errUp.message + '). Verifique o bucket "produtos" no Storage.', 'error', 6000);
-      } else {
-        const { data: urlData } = sb.storage.from('produtos').getPublicUrl(nomeArq);
-        fotoUrl = urlData.publicUrl;
-      }
-    }
-
-    btn.innerHTML = '<div class="spinner"></div>Salvando...';
-
-    // ── Payload com nomes CORRETOS das colunas do Supabase ──
-    const payload = {
-      nome,
-      categoria,   // coluna "categoria"
-      preco,       // coluna "preco" (sem cedilha!)
-      status,
-      descricao,   // coluna "descricao"
-      foto: fotoUrl,
-    };
-
-    if (prodEditandoId !== null) {
-      if (sb) {
-        const { error } = await sb.from('produtos').update(payload).eq('id', prodEditandoId);
-        if (error) throw error;
-      } else {
-        const idx = produtos.findIndex(p => p.id === prodEditandoId);
-        if (idx > -1) produtos[idx] = { ...produtos[idx], ...payload };
-        renderProdutos(produtos);
-      }
-      toast('Produto atualizado com sucesso!', 'success');
-      cancelarEdicaoProduto();
-    } else {
-      if (sb) {
-        const { error } = await sb.from('produtos').insert([payload]);
-        if (error) throw error;
-      } else {
-        produtos.unshift({ id: Date.now(), ...payload });
-        renderProdutos(produtos);
-      }
-      toast('Produto cadastrado com sucesso!', 'success');
-      limparFormProduto();
-    }
-    if (sb) await carregarProdutos();
-  } catch(e) {
-    console.error('Erro ao salvar produto:', e);
-    toast('Erro ao salvar: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar Produto';
-  }
-}
-
 function editarProduto(id) {
   const p = produtos.find(p => p.id === id);
   if (!p) return;
   prodEditandoId = id;
 
-  // Usa os nomes CORRETOS das colunas
   document.getElementById('prodNome').value   = p.nome      || '';
   document.getElementById('prodCat').value    = p.categoria || '';
   document.getElementById('prodPreco').value  = p.preco     || '';
   document.getElementById('prodStatus').value = p.status    || 'ativo';
   document.getElementById('prodDesc').value   = p.descricao || '';
 
-  // Guarda URL atual da foto para não perder ao salvar sem trocar imagem
-  prodFotoUrlAtual = p.foto || null;
+  prodFotoUrlAtual = p.imagem || null;
   prodFotoBase64   = '';
   const preview = document.getElementById('fotoPreview');
-  if (p.foto) {
-    preview.src = p.foto; preview.style.display = 'block';
+  if (p.imagem) {
+    preview.src = p.imagem; preview.style.display = 'block';
     document.getElementById('uploadPlaceholder').style.display = 'none';
     document.getElementById('uploadArea').style.borderColor = 'rgba(64,224,255,0.5)';
   }
@@ -1042,7 +979,7 @@ function renderProdutos(lista) {
   el.innerHTML = '<div class="produto-grid">' + lista.map(p => `
     <div class="produto-card">
       <div class="produto-img">
-        ${p.foto ? `<img src="${p.foto}" alt="${p.nome}" onerror="this.style.display='none';this.parentElement.innerHTML='🍴'">` : (emojis[p.categoria] || '🍴')}
+        ${p.imagem ? `<img src="${p.imagem}" alt="${p.nome}" onerror="this.style.display='none';this.parentElement.innerHTML='🍴'">` : (emojis[p.categoria] || '🍴')}
       </div>
       <div class="produto-name">${p.nome}</div>
       <div class="produto-price">R$ ${(p.preco||0).toFixed(2).replace('.',',')}</div>
@@ -1364,7 +1301,7 @@ function confirmLogout() { return confirm('Deseja sair do painel SKYE?'); }
   iniciarRealtimeProdutos();
   iniciarRealtimeClientes();
   carregarRelatorio('semanal');
-  console.log('🚀 SKYE Painel v2.0.1 iniciado — colunas corrigidas');
+  console.log('🚀 SKYE Painel v2.0.1 iniciado');
 })();
 </script>
 </body>
