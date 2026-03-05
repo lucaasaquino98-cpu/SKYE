@@ -860,20 +860,17 @@ async function salvarProduto() {
   const status    = document.getElementById('prodStatus').value;
   const descricao = document.getElementById('prodDesc').value.trim();
   if (!nome) { toast('Informe o nome do produto.', 'error'); return; }
-
   const btn = document.getElementById('btnSalvarProd');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>Salvando...';
-
   try {
-    let imagemUrl = prodFotoUrlAtual || null;
-
+    // ── Upload da foto para o Supabase Storage ────────────
+    let fotoUrl = prodFotoUrlAtual || null; // mantém URL anterior se não trocar foto
     const arquivoFoto = document.getElementById('prodFoto').files[0];
     if (arquivoFoto && sb) {
       btn.innerHTML = '<div class="spinner"></div>Enviando foto...';
       const ext     = arquivoFoto.name.split('.').pop().toLowerCase();
-      const nomeArq = `produto_${Date.now()}.${ext}`;
-
+      const nomeArq = produto_${Date.now()}.${ext};
       const { error: errUp } = await sb.storage
         .from('produtos')
         .upload(nomeArq, arquivoFoto, { upsert: true, contentType: arquivoFoto.type });
