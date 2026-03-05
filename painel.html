@@ -866,8 +866,7 @@ async function salvarProduto() {
   btn.innerHTML = '<div class="spinner"></div>Salvando...';
 
   try {
-    // ── Upload da foto para o Supabase Storage ────────────
-    let fotoUrl = prodFotoUrlAtual || null; // mantém URL anterior se não trocar foto
+    let imagemUrl = prodFotoUrlAtual || null;
 
     const arquivoFoto = document.getElementById('prodFoto').files[0];
     if (arquivoFoto && sb) {
@@ -878,6 +877,58 @@ async function salvarProduto() {
       const { error: errUp } = await sb.storage
         .from('produtos')
         .upload(nomeArq, arquivoFoto, { upsert: true, contentType: arquivoFoto.type });
+
+      if (errUp) {
+        console.warn('Upload de foto falhou:', errUp.message);
+        toast('⚠️ Foto não salva (' + errUp.message + '). Verifique o bucket "produtos" no Storage.', 'error', 6000);
+      } else {
+        const { data: urlData } = sb.storage.from('produtos').getPublicUrl(nomeArq);
+        imagemUrl = urlData.publicUrl;
+      }
+    }
+
+    btn.innerHTML = '<div class="spinner"></div>Salvando...';
+
+    const payload = {
+      nome,
+      categoria,
+      preco,
+      status,
+      descricao,
+      imagem: imagemUrl,
+    };
+
+    if (prodEditandoId !== null) {
+      if (sb) {
+        const { error } = await sb.from('produtos').update(payload).eq('id', prodEditandoId);
+        if (error) throw error;
+      } else {
+        const idx = produtos.findIndex(p => p.id === prodEditandoId);
+        if (idx > -1) produtos[idx] = { ...produtos[idx], ...payload };
+        renderProdutos(produtos);
+      }
+      toast('Produto atualizado com sucesso!', 'success');
+      cancelarEdicaoProduto();
+    } else {
+      if (sb) {
+        const { error } = await sb.from('produtos').insert([payload]);
+        if (error) throw error;
+      } else {
+        produtos.unshift({ id: Date.now(), ...payload });
+        renderProdutos(produtos);
+      }
+      toast('Produto cadastrado com sucesso!', 'success');
+      limparFormProduto();
+    }
+    if (sb) await carregarProdutos();
+  } catch(e) {
+    console.error('Erro ao salvar produto:', e);
+    toast('Erro ao salvar: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar Produto';
+  }
+}
 
       if (errUp) {
         console.warn('Upload de foto falhou:', errUp.message);
