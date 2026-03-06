@@ -722,13 +722,47 @@ document.getElementById('overlay').addEventListener('click', function() {
 
 /* ══ STATUS LOJA ══ */
 let lojaAberta = false;
-document.getElementById('statusToggle').addEventListener('click', function() {
-  lojaAberta = !lojaAberta;
-  document.getElementById('pillSwitch').classList.toggle('on', lojaAberta);
+
+function aplicarStatusLoja(aberta) {
+  lojaAberta = aberta;
+  document.getElementById('pillSwitch').classList.toggle('on', aberta);
   const v = document.getElementById('statusVal');
-  v.textContent = lojaAberta ? 'Aberta' : 'Fechada';
-  v.classList.toggle('aberto', lojaAberta);
-});
+  v.textContent = aberta ? 'Aberta' : 'Fechada';
+  v.classList.toggle('aberto', aberta);
+}
+
+async function carregarStatusLoja() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('configuracoes').select('loja_aberta').eq('id', 1).single();
+    if (!error && data) aplicarStatusLoja(data.loja_aberta);
+  } catch(e) { console.error('Erro ao carregar status da loja:', e); }
+}
+
+async function toggleStatusLoja() {
+  const novoStatus = !lojaAberta;
+  aplicarStatusLoja(novoStatus);
+  if (!sb) return;
+  try {
+    const { error } = await sb.from('configuracoes').update({ loja_aberta: novoStatus, atualizado_em: new Date().toISOString() }).eq('id', 1);
+    if (error) throw error;
+    toast('Loja ' + (novoStatus ? 'aberta' : 'fechada') + ' com sucesso!', 'success');
+  } catch(e) {
+    aplicarStatusLoja(!novoStatus); // reverte se falhar
+    toast('Erro ao atualizar status da loja: ' + e.message, 'error');
+  }
+}
+
+function iniciarRealtimeStatusLoja() {
+  if (!sb) return;
+  sb.channel('configuracoes-rt')
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'configuracoes' }, (payload) => {
+      if (payload.new) aplicarStatusLoja(payload.new.loja_aberta);
+    })
+    .subscribe(s => { if(s==='SUBSCRIBED') console.log('✅ Realtime status loja ativo'); });
+}
+
+document.getElementById('statusToggle').addEventListener('click', toggleStatusLoja);
 
 /* ══ CHARTS ══ */
 Chart.defaults.color = '#7090b0';
@@ -1410,9 +1444,11 @@ function confirmLogout() { return confirm('Deseja sair do painel SKYE?'); }
   carregarProdutos();
   carregarClientes();
   carregarPedidos();
+  carregarStatusLoja();
   iniciarRealtimeProdutos();
   iniciarRealtimeClientes();
   iniciarRealtimePedidos();
+  iniciarRealtimeStatusLoja();
   carregarRelatorio('semanal');
   console.log('🚀 SKYE Painel v2.0.1 iniciado');
 })();
