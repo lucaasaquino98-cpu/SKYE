@@ -291,6 +291,285 @@ tbody td { padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8); }
 .rt-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25); }
 .rt-dot { width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+/* ── Notificação de novo pedido ─────────────────────────────── */
+.skye-notif-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* partículas de scan */
+.skye-notif-overlay::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(64,224,255,0.0) 20%,
+    rgba(64,224,255,0.9) 50%,
+    rgba(64,224,255,0.0) 80%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px 6px rgba(64,224,255,0.35);
+  animation: skyeScanLine 1.4s ease-in-out forwards;
+}
+
+@keyframes skyeScanLine {
+  0%   { top: -4px; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.skye-notif-card {
+  position: fixed;
+  top: 80px;
+  right: 28px;
+  z-index: 99999;
+  width: 340px;
+  pointer-events: auto;
+
+  /* glassmorphism SKYE */
+  background: rgba(2, 4, 14, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(64, 224, 255, 0.35);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(26,106,255,0.15),
+    0 24px 60px rgba(0,0,0,0.7),
+    0 0 40px rgba(64,224,255,0.08);
+
+  animation: skyeNotifIn 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+.skye-notif-card.saindo {
+  animation: skyeNotifOut 0.4s cubic-bezier(0.4,0,1,1) forwards !important;
+}
+
+@keyframes skyeNotifIn {
+  0%   { opacity: 0; transform: translateX(60px) scale(0.9); }
+  100% { opacity: 1; transform: translateX(0)   scale(1);   }
+}
+@keyframes skyeNotifOut {
+  0%   { opacity: 1; transform: translateX(0)   scale(1);   }
+  100% { opacity: 0; transform: translateX(60px) scale(0.9); }
+}
+
+/* barra superior de progresso-timer */
+.skye-notif-timer {
+  height: 3px;
+  background: linear-gradient(90deg, #1a6aff, #40e0ff, #a060ff);
+  background-size: 200% 100%;
+  animation: skyeTimerBar var(--notif-duration,8s) linear forwards,
+             skyeTimerShift 2s ease-in-out infinite alternate;
+  transform-origin: left;
+}
+@keyframes skyeTimerBar    { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes skyeTimerShift  { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+/* borda lateral de acento */
+.skye-notif-accent {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #1a6aff 0%, #40e0ff 50%, #a060ff 100%);
+  border-radius: 3px 0 0 3px;
+}
+
+.skye-notif-body {
+  padding: 16px 18px 16px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.skye-notif-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg,
+    rgba(26,106,255,0.25) 0%,
+    rgba(96,32,204,0.25) 100%
+  );
+  border: 1px solid rgba(64,224,255,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  position: relative;
+}
+
+/* pulso no ícone */
+.skye-notif-icon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(64,224,255,0.4);
+  animation: skyeIconPulse 1.2s ease-out 2;
+}
+@keyframes skyeIconPulse {
+  0%   { transform: scale(1);    opacity: 1; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.skye-notif-content { flex: 1; min-width: 0; }
+
+.skye-notif-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #40e0ff;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skye-notif-label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #40e0ff;
+  animation: skyeDotBlink 1s ease-in-out 4;
+  flex-shrink: 0;
+}
+@keyframes skyeDotBlink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
+
+.skye-notif-titulo {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.skye-notif-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.skye-notif-linha {
+  font-size: 12px;
+  color: rgba(180, 210, 255, 0.65);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skye-notif-linha strong {
+  color: rgba(220, 235, 255, 0.9);
+  font-weight: 600;
+}
+
+.skye-notif-total {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  color: #40e0ff;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+
+.skye-notif-total small {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(64,224,255,0.5);
+  letter-spacing: 1px;
+  margin-left: 3px;
+}
+
+.skye-notif-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(180, 210, 255, 0.3);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 6px;
+  transition: color .2s, background .2s;
+}
+.skye-notif-close:hover {
+  color: rgba(180,210,255,0.8);
+  background: rgba(255,255,255,0.07);
+}
+
+.skye-notif-footer {
+  padding: 0 18px 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.skye-notif-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: rgba(34,197,94,0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.3);
+}
+
+.skye-notif-ver {
+  font-size: 11px;
+  color: rgba(64,224,255,0.6);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: 'Sora', sans-serif;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all .2s;
+  letter-spacing: 0.5px;
+}
+.skye-notif-ver:hover {
+  color: #40e0ff;
+  background: rgba(64,224,255,0.08);
+}
+
+/* flash sutil na borda da tela */
+.skye-borda-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  pointer-events: none;
+  border: 2px solid rgba(64,224,255,0.0);
+  border-radius: 0;
+  animation: skyeBordaFlash 0.8s ease-out forwards;
+}
+@keyframes skyeBordaFlash {
+  0%   { border-color: rgba(64,224,255,0.5); box-shadow: inset 0 0 40px rgba(64,224,255,0.1); }
+  100% { border-color: rgba(64,224,255,0.0); box-shadow: none; }
+}
 </style>
 </head>
 <body>
@@ -1354,23 +1633,159 @@ async function atualizarStatusPedido(id, novoStatus) {
   } catch(e) { toast('Erro ao atualizar status: ' + e.message, 'error'); }
 }
 
+/* ══ SOM DE NOTIFICAÇÃO ══ */
+function tocarSomNovoPedido() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // nota 1 — ding agudo
+    const o1 = ctx.createOscillator();
+    const g1 = ctx.createGain();
+    o1.connect(g1); g1.connect(ctx.destination);
+    o1.type = 'sine'; o1.frequency.setValueAtTime(880, ctx.currentTime);
+    o1.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.12);
+    g1.gain.setValueAtTime(0.25, ctx.currentTime);
+    g1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o1.start(ctx.currentTime); o1.stop(ctx.currentTime + 0.4);
+
+    // nota 2 — reforço harmonioso
+    const o2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.type = 'sine'; o2.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+    o2.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+    g2.gain.setValueAtTime(0.0, ctx.currentTime + 0.15);
+    g2.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.22);
+    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    o2.start(ctx.currentTime + 0.15); o2.stop(ctx.currentTime + 0.6);
+  } catch(e) { /* silencioso se bloqueado pelo browser */ }
+}
+
+/* ══ NOTIFICAÇÃO PREMIUM SKYE ══ */
+let _skyeNotifEl    = null;
+let _skyeNotifTimer = null;
+const NOTIF_DURACAO = 9000; // ms
+
+function mostrarNotifPedido(pedido) {
+  // remove a anterior se ainda estiver visível
+  fecharNotifPedido(true);
+
+  const DURACAO_CSS = (NOTIF_DURACAO / 1000) + 's';
+
+  // flash na borda da tela
+  const flash = document.createElement('div');
+  flash.className = 'skye-borda-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 900);
+
+  // linha de scan
+  const overlay = document.createElement('div');
+  overlay.className = 'skye-notif-overlay';
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 1500);
+
+  // formata dados do pedido
+  const id      = pedido.id        || '—';
+  const cliente = pedido.cliente   || 'Cliente';
+  const total   = parseFloat(pedido.total || 0).toFixed(2).replace('.', ',');
+  const hora    = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const tipo    = (pedido.observacao || '').toLowerCase().includes('delivery') ? '🚚 Delivery' : '🏃 Retirada';
+  const itens   = Array.isArray(pedido.itens) ? pedido.itens : [];
+  const nItens  = itens.reduce((acc, i) => acc + (i.quantidade || 1), 0);
+
+  // card
+  const card = document.createElement('div');
+  card.className   = 'skye-notif-card';
+  card.style.setProperty('--notif-duration', DURACAO_CSS);
+  card.innerHTML = `
+    <div class="skye-notif-timer"></div>
+    <div class="skye-notif-accent"></div>
+
+    <div class="skye-notif-body">
+      <div class="skye-notif-icon">🍣</div>
+      <div class="skye-notif-content">
+        <div class="skye-notif-label">SKYE · Novo Pedido</div>
+        <div class="skye-notif-titulo">#${id} — ${cliente}</div>
+        <div class="skye-notif-meta">
+          <div class="skye-notif-linha">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <strong>${hora}</strong>&nbsp;· ${tipo}
+          </div>
+          <div class="skye-notif-linha">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
+            <strong>${nItens}</strong>&nbsp;${nItens === 1 ? 'item' : 'itens'} no pedido
+          </div>
+        </div>
+        <div class="skye-notif-total">
+          R$ ${total}
+          <small>BRL</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="skye-notif-footer">
+      <span class="skye-notif-badge">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:skyeDotBlink 1s ease-in-out infinite;flex-shrink:0;"></span>
+        Pedido recebido
+      </span>
+      <button class="skye-notif-ver" onclick="verPedidoNotif()">
+        Ver pedido →
+      </button>
+    </div>
+
+    <button class="skye-notif-close" onclick="fecharNotifPedido(false)" title="Fechar">×</button>
+  `;
+
+  document.body.appendChild(card);
+  _skyeNotifEl = card;
+
+  // fecha automaticamente
+  _skyeNotifTimer = setTimeout(() => fecharNotifPedido(false), NOTIF_DURACAO);
+}
+
+function fecharNotifPedido(imediato) {
+  if (_skyeNotifTimer) { clearTimeout(_skyeNotifTimer); _skyeNotifTimer = null; }
+  if (!_skyeNotifEl) return;
+  const el = _skyeNotifEl;
+  _skyeNotifEl = null;
+  if (imediato) { el.remove(); return; }
+  el.classList.add('saindo');
+  setTimeout(() => el.remove(), 420);
+}
+
+function verPedidoNotif() {
+  fecharNotifPedido(false);
+  navTo('pedidos'); // navega para a aba de pedidos do painel
+}
+
+/* ══ iniciarRealtimePedidos — versão SKYE PREMIUM ══ */
 function iniciarRealtimePedidos() {
   if (!sb) return;
   sb.channel('pedidos-rt')
-    .on('postgres_changes', {event:'*', schema:'public', table:'pedidos'}, (payload) => {
-      // Notificação sonora para novo pedido
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, (payload) => {
+
       if (payload.eventType === 'INSERT') {
-        toast('🛎️ Novo pedido recebido! #' + payload.new.id, 'success', 6000);
-        try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA...').play().catch(()=>{}); } catch(e){}
+        const p = payload.new || {};
+
+        // som
+        tocarSomNovoPedido();
+
+        // notificação premium
+        mostrarNotifPedido(p);
+
+        // toast simples como fallback no rodapé
+        toast('🛎️ Pedido #' + (p.id || '?') + ' de ' + (p.cliente || 'cliente') + ' chegou!', 'success', 4000);
       }
+
       carregarPedidos();
       atualizarDashboard();
     })
-    .subscribe(s => { if(s==='SUBSCRIBED') console.log('✅ Realtime pedidos ativo'); });
+    .subscribe(s => {
+      if (s === 'SUBSCRIBED') console.log('✅ Realtime pedidos ativo');
+    });
 }
 
 /* ══ RELATÓRIOS ══ */
-/* ══ RELATÓRIOS — dados reais do Supabase ══ */
 let periodoAtivo = 'semanal';
 let relFatChart, relPedChart;
 let dadosRelatorioCache = null;
@@ -1381,7 +1796,6 @@ async function carregarDadosRelatorio(periodo) {
   let dataInicio, dataFim, diasLabel;
 
   if (periodo === 'semanal') {
-    // últimos 7 dias
     dataFim   = new Date(hoje);
     dataInicio = new Date(hoje);
     dataInicio.setDate(hoje.getDate() - 6);
@@ -1391,11 +1805,9 @@ async function carregarDadosRelatorio(periodo) {
       diasLabel.push(d.toLocaleDateString('pt-BR', {weekday:'short'}).replace('.',''));
     }
   } else {
-    // este mês
     dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     dataFim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
     diasLabel  = [];
-    // semanas do mês
     for (let s = 1; s <= 5; s++) {
       const inicio = (s - 1) * 7 + 1;
       if (inicio > dataFim.getDate()) break;
@@ -1420,7 +1832,6 @@ async function carregarDadosRelatorio(periodo) {
     const totalPedidos = validos.length;
     const ticket = totalPedidos > 0 ? faturamento / totalPedidos : 0;
 
-    // faturamento e pedidos por dia/semana
     const fatDia  = new Array(diasLabel.length).fill(0);
     const pedDia  = new Array(diasLabel.length).fill(0);
 
@@ -1438,7 +1849,6 @@ async function carregarDadosRelatorio(periodo) {
       pedDia[idx]  += 1;
     });
 
-    // top produtos dos itens (JSON)
     const prodMap = {};
     validos.forEach(p => {
       const itens = Array.isArray(p.itens) ? p.itens : [];
@@ -1458,7 +1868,6 @@ async function carregarDadosRelatorio(periodo) {
       topProdutos.push({ nome: 'Sem dados ainda', qtd: 0, receita: 0 });
     }
 
-    // horários de pico
     const horMap = { '12h–14h': 0, '14h–18h': 0, '18h–20h': 0, '20h–22h': 0, '22h–00h': 0 };
     validos.forEach(p => {
       const h = new Date(p.criado_em).getHours();
@@ -1475,10 +1884,8 @@ async function carregarDadosRelatorio(periodo) {
     })).filter(h => h.pedidos > 0);
     if (horarios.length === 0) horarios.push({ hora: 'Sem dados', pedidos: 0, pct: 100 });
 
-    // novos clientes no período (pelo nome do pedido — aproximação)
     let nCli = 0;
     try {
-      // tenta com created_at, fallback para criado_em
       const r1 = await sb.from('clientes').select('*', { count: 'exact', head: true }).gte('created_at', isoInicio).lte('created_at', isoFim);
       if (!r1.error) nCli = r1.count || 0;
       else {
@@ -1522,7 +1929,6 @@ function selecionarPeriodo(btn, periodo) {
 async function carregarRelatorio(periodo) {
   periodoAtivo = periodo;
 
-  // Mostra loading
   ['relFaturamento','relPedidos','relTicket','relClientes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '...';
@@ -1710,7 +2116,7 @@ async function salvarConfig() {
     console.error('Erro ao salvar config:', e);
     toast('Erro ao salvar: ' + e.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d=\"M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg>Salvar Alterações'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar Alterações'; }
   }
 }
 
