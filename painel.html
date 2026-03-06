@@ -682,8 +682,9 @@ tbody td { padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8); }
 </footer>
 
 <script>
-/* ══ DESBLOQUEIO DE ÁUDIO — deve rodar antes de tudo ══ */
+/* ══ DESBLOQUEIO DE ÁUDIO ══ */
 window._audioCtx = null;
+window._audioDesbloqueado = false;
 function _getAudioCtx() {
   if (!window._audioCtx) {
     window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -693,10 +694,14 @@ function _getAudioCtx() {
   }
   return window._audioCtx;
 }
-// Desbloqueia no primeiro clique/toque do usuário
-document.addEventListener('click',     function _unlock() { _getAudioCtx(); document.removeEventListener('click',     _unlock); }, { once: true });
-document.addEventListener('touchstart', function _unlock() { _getAudioCtx(); document.removeEventListener('touchstart', _unlock); }, { once: true });
-document.addEventListener('keydown',    function _unlock() { _getAudioCtx(); document.removeEventListener('keydown',    _unlock); }, { once: true });
+function _unlockAudio() {
+  if (window._audioDesbloqueado) return;
+  window._audioDesbloqueado = true;
+  _getAudioCtx();
+}
+document.addEventListener('click',      _unlockAudio);
+document.addEventListener('touchstart', _unlockAudio);
+document.addEventListener('keydown',    _unlockAudio);
 
 /* ══ SUPABASE INIT ══ */
 let sb = null;
@@ -1520,3 +1525,20 @@ async function salvarConfig() {
 function confirmLogout() { return confirm('Deseja sair do painel SKYE?'); }
 
 /* ══ INIT ══ */
+(function init() {
+  atualizarDashboard();
+  carregarProdutos();
+  carregarClientes();
+  carregarPedidos();
+  carregarStatusLoja();
+  iniciarRealtimeProdutos();
+  iniciarRealtimeClientes();
+  iniciarRealtimePedidos();
+  iniciarRealtimeStatusLoja();
+  carregarRelatorio('semanal');
+  carregarConfig();
+  console.log('🚀 SKYE Painel v2.0.1 iniciado');
+})();
+</script>
+</body>
+</html>
