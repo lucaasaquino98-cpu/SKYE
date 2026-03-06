@@ -600,30 +600,78 @@ tbody td { padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8); }
         <button class="btn btn-primary btn-sm" onclick="salvarConfig()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar Alterações</button>
       </div>
       <div class="glass-card" style="padding:24px">
+
+        <!-- STATUS DE SINCRONIZAÇÃO -->
+        <div id="cfgSyncBanner" style="display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:rgba(64,224,255,0.08);border:1px solid rgba(64,224,255,0.25);margin-bottom:20px;">
+          <span class="rt-dot" style="background:var(--cyan);flex-shrink:0;"></span>
+          <span style="font-size:12px;color:var(--cyan);">Sincronizado com o cardápio — as alterações aparecem em tempo real para os clientes.</span>
+        </div>
+
         <div class="config-section">
-          <div class="config-section-title"><span style="color:var(--cyan)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Dados da Loja</div>
+          <div class="config-section-title">
+            <span style="color:var(--cyan)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>Dados da Loja
+            <span style="font-size:10px;color:var(--cyan);letter-spacing:1px;text-transform:none;font-weight:400;margin-left:6px;">· aparece no cardápio</span>
+          </div>
           <div class="form-grid" style="margin-bottom:14px">
-            <div class="form-group"><label class="form-label">Nome da Loja</label><input class="form-input" value="Meu Restaurante" id="cfgNome"></div>
-            <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" placeholder="(00) 00000-0000" id="cfgTel"></div>
-            <div class="form-group"><label class="form-label">Endereço</label><input class="form-input" placeholder="Endereço completo" id="cfgEnd"></div>
-            <div class="form-group"><label class="form-label">Taxa de Entrega (R$)</label><input class="form-input" type="number" value="5.00" step="0.50" id="cfgTaxa"></div>
+            <div class="form-group">
+              <label class="form-label">Nome da Loja</label>
+              <input class="form-input" placeholder="Ex: Joe Sushi" id="cfgNome">
+              <span style="font-size:10px;color:var(--muted);margin-top:4px;">Exibido no topo do cardápio</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefone / WhatsApp</label>
+              <input class="form-input" placeholder="(00) 00000-0000" id="cfgTel">
+              <span style="font-size:10px;color:var(--muted);margin-top:4px;">Exibido no rodapé do cardápio</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Endereço</label>
+              <input class="form-input" placeholder="Rua das Ondas, 123 – Recife, PE" id="cfgEnd">
+              <span style="font-size:10px;color:var(--muted);margin-top:4px;">Exibido no rodapé do cardápio</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tempo Estimado de Entrega</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input class="form-input" type="number" placeholder="30" min="5" max="180" step="5" id="cfgTempo" style="width:90px;">
+                <span style="font-size:13px;color:var(--muted);">minutos</span>
+              </div>
+              <span style="font-size:10px;color:var(--muted);margin-top:4px;">Aparece de forma sutil no cardápio</span>
+            </div>
+          </div>
+
+          <!-- PREVIEW -->
+          <div style="background:rgba(255,255,255,0.03);border:1px dashed rgba(80,160,255,0.2);border-radius:10px;padding:14px 16px;margin-top:4px;">
+            <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pré-visualização no cardápio</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span style="font-size:18px;font-weight:700;color:#dc2626;" id="prevNome">—</span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.4)">· Delivery · Cozinha Oriental</span>
+            </div>
+            <div style="font-size:12px;color:rgba(180,200,255,0.5);" id="prevRodape">Endereço · Telefone</div>
+            <div style="margin-top:8px;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(26,106,255,0.12);border:1px solid rgba(26,106,255,0.2);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="font-size:11px;color:#60a5fa;" id="prevTempo">Entrega estimada: — min</span>
+            </div>
           </div>
         </div>
+
         <div class="config-section">
-          <div class="config-section-title"><span style="color:var(--cyan)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Horário de Funcionamento</div>
-          <div class="form-grid" style="margin-bottom:14px">
-            <div class="form-group"><label class="form-label">Abertura</label><input class="form-input" type="time" value="11:00" id="cfgAbertura"></div>
-            <div class="form-group"><label class="form-label">Fechamento</label><input class="form-input" type="time" value="23:00" id="cfgFechamento"></div>
+          <div class="config-section-title">
+            <span style="color:var(--cyan)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="5" width="22" height="14" rx="7" ry="7"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>
+            </span>Preferências
           </div>
-        </div>
-        <div class="config-section">
-          <div class="config-section-title"><span style="color:var(--cyan)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="5" width="22" height="14" rx="7" ry="7"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg></span>Preferências</div>
-          <div class="config-row"><div class="config-row-info"><h4>Notificações de Pedidos</h4><p>Receber alertas sonoros para novos pedidos</p></div><div class="pill-switch on" style="cursor:pointer" onclick="this.classList.toggle('on')"><div class="pill-knob"></div></div></div>
+          <div class="config-row"><div class="config-row-info"><h4>Notificações de Pedidos</h4><p>Receber alertas para novos pedidos no painel</p></div><div class="pill-switch on" style="cursor:pointer" onclick="this.classList.toggle('on')"><div class="pill-knob"></div></div></div>
           <div class="config-row"><div class="config-row-info"><h4>Aceitar Pedidos Automaticamente</h4><p>Confirmar pedidos sem aprovação manual</p></div><div class="pill-switch" style="cursor:pointer" onclick="this.classList.toggle('on')"><div class="pill-knob"></div></div></div>
           <div class="config-row"><div class="config-row-info"><h4>Modo Manutenção</h4><p>Exibir mensagem de indisponibilidade no cardápio</p></div><div class="pill-switch" style="cursor:pointer" onclick="this.classList.toggle('on')"><div class="pill-knob"></div></div></div>
         </div>
+
         <div class="config-section">
-          <div class="config-section-title"><span style="color:var(--cyan)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span>Segurança</div>
+          <div class="config-section-title">
+            <span style="color:var(--cyan)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </span>Segurança
+          </div>
           <div class="form-grid">
             <div class="form-group"><label class="form-label">Senha Atual</label><input class="form-input" type="password" placeholder="••••••••"></div>
             <div class="form-group"><label class="form-label">Nova Senha</label><input class="form-input" type="password" placeholder="••••••••"></div>
@@ -1608,8 +1656,64 @@ function exportarPDF() {
   setTimeout(() => { btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar PDF'; btn.disabled=false; }, 2500);
 }
 
-/* ══ CONFIG / LOGOUT ══ */
-function salvarConfig() { toast('Configurações salvas!', 'success'); }
+/* ══ CONFIG ══ */
+function atualizarPreviewConfig() {
+  const nome  = document.getElementById('cfgNome')?.value  || '—';
+  const tel   = document.getElementById('cfgTel')?.value   || 'Telefone';
+  const end   = document.getElementById('cfgEnd')?.value   || 'Endereço';
+  const tempo = document.getElementById('cfgTempo')?.value || '—';
+  const pNome = document.getElementById('prevNome');
+  const pRod  = document.getElementById('prevRodape');
+  const pTemp = document.getElementById('prevTempo');
+  if (pNome)  pNome.textContent  = nome;
+  if (pRod)   pRod.textContent   = end + ' · ' + tel;
+  if (pTemp)  pTemp.textContent  = 'Entrega estimada: ' + tempo + ' min';
+}
+
+['cfgNome','cfgTel','cfgEnd','cfgTempo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', atualizarPreviewConfig);
+});
+
+async function carregarConfig() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('configuracoes').select('nome_loja, telefone, endereco, tempo_entrega').eq('id', 1).single();
+    if (error || !data) return;
+    if (data.nome_loja)     document.getElementById('cfgNome').value  = data.nome_loja;
+    if (data.telefone)      document.getElementById('cfgTel').value   = data.telefone;
+    if (data.endereco)      document.getElementById('cfgEnd').value   = data.endereco;
+    if (data.tempo_entrega) document.getElementById('cfgTempo').value = data.tempo_entrega;
+    atualizarPreviewConfig();
+    document.getElementById('cfgSyncBanner').style.display = 'flex';
+  } catch(e) { console.error('Erro ao carregar config:', e); }
+}
+
+async function salvarConfig() {
+  const nome  = (document.getElementById('cfgNome')?.value  || '').trim();
+  const tel   = (document.getElementById('cfgTel')?.value   || '').trim();
+  const end   = (document.getElementById('cfgEnd')?.value   || '').trim();
+  const tempo = parseInt(document.getElementById('cfgTempo')?.value || '0', 10);
+  if (!nome) { toast('Informe o nome da loja.', 'error'); return; }
+  const btn = document.querySelector('[onclick="salvarConfig()"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>Salvando...'; }
+  try {
+    if (sb) {
+      const payload = { nome_loja: nome, telefone: tel||null, endereco: end||null, tempo_entrega: tempo||null, atualizado_em: new Date().toISOString() };
+      const { error } = await sb.from('configuracoes').upsert({ id: 1, ...payload });
+      if (error) throw error;
+      document.getElementById('cfgSyncBanner').style.display = 'flex';
+    }
+    toast('✅ Configurações salvas e sincronizadas com o cardápio!', 'success', 4000);
+    atualizarPreviewConfig();
+  } catch(e) {
+    console.error('Erro ao salvar config:', e);
+    toast('Erro ao salvar: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d=\"M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/></svg>Salvar Alterações'; }
+  }
+}
+
 function confirmLogout() { return confirm('Deseja sair do painel SKYE?'); }
 
 /* ══ INIT ══ */
@@ -1624,6 +1728,7 @@ function confirmLogout() { return confirm('Deseja sair do painel SKYE?'); }
   iniciarRealtimePedidos();
   iniciarRealtimeStatusLoja();
   carregarRelatorio('semanal');
+  carregarConfig();
   console.log('🚀 SKYE Painel v2.0.1 iniciado');
 })();
 </script>
