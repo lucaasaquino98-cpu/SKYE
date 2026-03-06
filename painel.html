@@ -774,8 +774,26 @@ async function atualizarDashboard() {
     document.getElementById('clientesAtivos').textContent = nCli ?? '—';
     const { count: nProd } = await sb.from('produtos').select('*', {count:'exact', head:true}).eq('status','ativo');
     document.getElementById('totalProdutos').textContent = nProd ?? '—';
-    document.getElementById('totalPedidos').textContent = '—';
-    document.getElementById('totalVendas').textContent  = '—';
+
+    // Pedidos e vendas de HOJE
+    const hoje = new Date();
+    const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).toISOString();
+    const fimDia    = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59).toISOString();
+    const { data: pedidosHoje, error: errPed } = await sb
+      .from('pedidos')
+      .select('total, status')
+      .gte('criado_em', inicioDia)
+      .lte('criado_em', fimDia);
+    if (!errPed && pedidosHoje) {
+      const validos = pedidosHoje.filter(p => p.status !== 'cancelado');
+      const totalVendas = validos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+      document.getElementById('totalPedidos').textContent = validos.length;
+      document.getElementById('totalVendas').textContent  = 'R$ ' + totalVendas.toFixed(2).replace('.', ',');
+    } else {
+      document.getElementById('totalPedidos').textContent = '0';
+      document.getElementById('totalVendas').textContent  = 'R$ 0,00';
+    }
+
     renderChartsDemo();
   } catch(e) { console.error('Dashboard error:', e); renderChartsDemo(); }
 }
