@@ -1322,13 +1322,148 @@ function iniciarRealtimePedidos() {
 }
 
 /* ══ RELATÓRIOS ══ */
-const dadosPeriodo = {
-  semanal: { label:'01/07 – 07/07/2025', faturamento:8470, pedidos:151, ticket:56.09, clientes:38, fatTrend:'+14%', pedTrend:'+8%', ticketTrend:'+5%', cliTrend:'+21%', diasLabel:['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'], fatDia:[980,1120,870,1350,1200,1950,1000], pedDia:[18,22,15,26,23,35,12], topProdutos:[{nome:'Pizza Margherita',qtd:45,receita:1575},{nome:'Hambúrguer Artesanal',qtd:38,receita:1330},{nome:'Sushi Combo',qtd:29,receita:1450},{nome:'Salada Caesar',qtd:22,receita:484},{nome:'Petit Gateau',qtd:18,receita:378}], horarios:[{hora:'12h–14h',pedidos:48,pct:32},{hora:'19h–21h',pedidos:67,pct:44},{hora:'21h–23h',pedidos:36,pct:24}] },
-  mensal: { label:'Junho 2025', faturamento:34200, pedidos:612, ticket:55.88, clientes:142, fatTrend:'+11%', pedTrend:'+6%', ticketTrend:'+3%', cliTrend:'+18%', diasLabel:['S1','S2','S3','S4'], fatDia:[7800,8500,9200,8700], pedDia:[142,155,167,148], topProdutos:[{nome:'Pizza Margherita',qtd:180,receita:6300},{nome:'Hambúrguer Artesanal',qtd:155,receita:5425},{nome:'Sushi Combo',qtd:112,receita:5600},{nome:'Salada Caesar',qtd:89,receita:1958},{nome:'Petit Gateau',qtd:76,receita:1596}], horarios:[{hora:'12h–14h',pedidos:196,pct:32},{hora:'19h–21h',pedidos:269,pct:44},{hora:'21h–23h',pedidos:147,pct:24}] },
-  trimestral: { label:'Abr – Jun 2025', faturamento:98400, pedidos:1820, ticket:54.07, clientes:389, fatTrend:'+9%', pedTrend:'+12%', ticketTrend:'+2%', cliTrend:'+15%', diasLabel:['Abril','Maio','Junho'], fatDia:[30200,33800,34400], pedDia:[560,620,640], topProdutos:[{nome:'Pizza Margherita',qtd:520,receita:18200},{nome:'Hambúrguer Artesanal',qtd:448,receita:15680},{nome:'Sushi Combo',qtd:334,receita:16700},{nome:'Salada Caesar',qtd:260,receita:5720},{nome:'Petit Gateau',qtd:218,receita:4578}], horarios:[{hora:'12h–14h',pedidos:582,pct:32},{hora:'19h–21h',pedidos:801,pct:44},{hora:'21h–23h',pedidos:437,pct:24}] },
-};
+/* ══ RELATÓRIOS — dados reais do Supabase ══ */
 let periodoAtivo = 'semanal';
 let relFatChart, relPedChart;
+let dadosRelatorioCache = null;
+
+async function carregarDadosRelatorio(periodo) {
+  if (!sb) return null;
+  const hoje = new Date();
+  let dataInicio, dataFim, diasLabel;
+
+  if (periodo === 'semanal') {
+    // últimos 7 dias
+    dataFim   = new Date(hoje);
+    dataInicio = new Date(hoje);
+    dataInicio.setDate(hoje.getDate() - 6);
+    diasLabel = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoje); d.setDate(hoje.getDate() - i);
+      diasLabel.push(d.toLocaleDateString('pt-BR', {weekday:'short'}).replace('.',''));
+    }
+  } else {
+    // este mês
+    dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    dataFim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    diasLabel  = [];
+    // semanas do mês
+    for (let s = 1; s <= 5; s++) {
+      const inicio = (s - 1) * 7 + 1;
+      if (inicio > dataFim.getDate()) break;
+      diasLabel.push('S' + s);
+    }
+  }
+
+  const isoInicio = dataInicio.toISOString().split('T')[0] + 'T00:00:00';
+  const isoFim    = dataFim.toISOString().split('T')[0]   + 'T23:59:59';
+
+  try {
+    const { data: pedidos, error } = await sb
+      .from('pedidos')
+      .select('total, status, criado_em, itens')
+      .gte('criado_em', isoInicio)
+      .lte('criado_em', isoFim);
+
+    if (error || !pedidos) return null;
+
+    const validos = pedidos.filter(p => p.status !== 'cancelado');
+    const faturamento = validos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+    const totalPedidos = validos.length;
+    const ticket = totalPedidos > 0 ? faturamento / totalPedidos : 0;
+
+    // faturamento e pedidos por dia/semana
+    const fatDia  = new Array(diasLabel.length).fill(0);
+    const pedDia  = new Array(diasLabel.length).fill(0);
+
+    validos.forEach(p => {
+      const d = new Date(p.criado_em);
+      let idx = 0;
+      if (periodo === 'semanal') {
+        const diffDias = Math.floor((d - dataInicio) / (1000 * 60 * 60 * 24));
+        idx = Math.max(0, Math.min(diffDias, 6));
+      } else {
+        const semana = Math.floor((d.getDate() - 1) / 7);
+        idx = Math.min(semana, diasLabel.length - 1);
+      }
+      fatDia[idx]  += parseFloat(p.total) || 0;
+      pedDia[idx]  += 1;
+    });
+
+    // top produtos dos itens (JSON)
+    const prodMap = {};
+    validos.forEach(p => {
+      const itens = Array.isArray(p.itens) ? p.itens : [];
+      itens.forEach(item => {
+        if (!item.nome || item.nome === 'Taxa de Entrega') return;
+        if (!prodMap[item.nome]) prodMap[item.nome] = { qtd: 0, receita: 0 };
+        prodMap[item.nome].qtd    += item.quantidade || 1;
+        prodMap[item.nome].receita += parseFloat(item.precoFinal) || 0;
+      });
+    });
+    const topProdutos = Object.entries(prodMap)
+      .map(([nome, v]) => ({ nome, qtd: v.qtd, receita: parseFloat(v.receita.toFixed(2)) }))
+      .sort((a, b) => b.receita - a.receita)
+      .slice(0, 5);
+
+    if (topProdutos.length === 0) {
+      topProdutos.push({ nome: 'Sem dados ainda', qtd: 0, receita: 0 });
+    }
+
+    // horários de pico
+    const horMap = { '12h–14h': 0, '14h–18h': 0, '18h–20h': 0, '20h–22h': 0, '22h–00h': 0 };
+    validos.forEach(p => {
+      const h = new Date(p.criado_em).getHours();
+      if (h >= 12 && h < 14) horMap['12h–14h']++;
+      else if (h >= 14 && h < 18) horMap['14h–18h']++;
+      else if (h >= 18 && h < 20) horMap['18h–20h']++;
+      else if (h >= 20 && h < 22) horMap['20h–22h']++;
+      else if (h >= 22 || h < 0)  horMap['22h–00h']++;
+    });
+    const totalHor = Object.values(horMap).reduce((a,b) => a+b, 0) || 1;
+    const horarios = Object.entries(horMap).map(([hora, qtd]) => ({
+      hora, pedidos: qtd,
+      pct: Math.round((qtd / totalHor) * 100),
+    })).filter(h => h.pedidos > 0);
+    if (horarios.length === 0) horarios.push({ hora: 'Sem dados', pedidos: 0, pct: 100 });
+
+    // novos clientes no período (pelo nome do pedido — aproximação)
+    let nCli = 0;
+    try {
+      // tenta com created_at, fallback para criado_em
+      const r1 = await sb.from('clientes').select('*', { count: 'exact', head: true }).gte('created_at', isoInicio).lte('created_at', isoFim);
+      if (!r1.error) nCli = r1.count || 0;
+      else {
+        const r2 = await sb.from('clientes').select('*', { count: 'exact', head: true }).gte('criado_em', isoInicio).lte('criado_em', isoFim);
+        nCli = r2.count || 0;
+      }
+    } catch(e) { nCli = 0; }
+
+    const labelPeriodo = periodo === 'semanal'
+      ? dataInicio.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'}) + ' – ' + dataFim.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'})
+      : dataInicio.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+
+    return {
+      label: labelPeriodo,
+      faturamento: parseFloat(faturamento.toFixed(2)),
+      pedidos: totalPedidos,
+      ticket: parseFloat(ticket.toFixed(2)),
+      clientes: nCli || 0,
+      fatTrend: '↑ ao vivo',
+      pedTrend: '↑ ao vivo',
+      ticketTrend: '↑ ao vivo',
+      cliTrend: '↑ ao vivo',
+      diasLabel,
+      fatDia: fatDia.map(v => parseFloat(v.toFixed(2))),
+      pedDia,
+      topProdutos,
+      horarios,
+    };
+  } catch(e) {
+    console.error('Erro ao carregar relatório:', e);
+    return null;
+  }
+}
 
 function selecionarPeriodo(btn, periodo) {
   document.querySelectorAll('.periodo-btn').forEach(b => { b.classList.remove('active','btn-primary'); b.classList.add('btn-ghost'); });
@@ -1336,10 +1471,27 @@ function selecionarPeriodo(btn, periodo) {
   carregarRelatorio(periodo);
 }
 
-function carregarRelatorio(periodo) {
+async function carregarRelatorio(periodo) {
   periodoAtivo = periodo;
-  const d = dadosPeriodo[periodo];
-  document.getElementById('relFaturamento').textContent = 'R$ ' + d.faturamento.toLocaleString('pt-BR');
+
+  // Mostra loading
+  ['relFaturamento','relPedidos','relTicket','relClientes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '...';
+  });
+
+  const d = await carregarDadosRelatorio(periodo);
+  if (!d) {
+    ['relFaturamento','relPedidos','relTicket','relClientes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+    return;
+  }
+
+  dadosRelatorioCache = d;
+
+  document.getElementById('relFaturamento').textContent = 'R$ ' + d.faturamento.toLocaleString('pt-BR', {minimumFractionDigits:2});
   document.getElementById('relPedidos').textContent     = d.pedidos;
   document.getElementById('relTicket').textContent      = 'R$ ' + d.ticket.toFixed(2).replace('.',',');
   document.getElementById('relClientes').textContent    = d.clientes;
@@ -1348,12 +1500,33 @@ function carregarRelatorio(periodo) {
   document.getElementById('relTicketTrend').textContent = d.ticketTrend;
   document.getElementById('relCliTrend').textContent    = d.cliTrend;
   document.getElementById('periodoLabel').textContent   = d.label;
+
   if (relFatChart) relFatChart.destroy();
   if (relPedChart) relPedChart.destroy();
   relFatChart = makeBar('relFatChart', d.diasLabel, d.fatDia, 'rgba(26,106,255,');
   relPedChart = makeLine('relPedChart', d.diasLabel, d.pedDia, 'rgba(64,224,255,');
-  document.getElementById('relTopProdutos').innerHTML = d.topProdutos.map((p,i) => `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);"><td style="padding:8px 4px;font-size:12px;color:var(--muted);">${i+1}</td><td style="padding:8px 4px;font-size:13px;color:#e8f0ff;">${p.nome}</td><td style="padding:8px 4px;font-size:13px;font-weight:600;color:#22c55e;text-align:right;">R$ ${p.receita.toLocaleString('pt-BR')}</td></tr>`).join('');
-  document.getElementById('relHorarios').innerHTML = d.horarios.map(h => `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:13px;color:#e8f0ff;">${h.hora}</span><span style="font-size:12px;color:var(--cyan);font-weight:600;">${h.pedidos} pedidos · ${h.pct}%</span></div><div style="height:6px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${h.pct}%;background:linear-gradient(90deg,#1a6aff,#40e0ff);border-radius:4px;"></div></div></div>`).join('');
+
+  document.getElementById('relTopProdutos').innerHTML = d.topProdutos.map((p,i) =>
+    `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+      <td style="padding:8px 4px;font-size:12px;color:var(--muted);">${i+1}</td>
+      <td style="padding:8px 4px;font-size:13px;color:#e8f0ff;">${p.nome}</td>
+      <td style="padding:8px 4px;font-size:12px;color:var(--muted);text-align:center;">${p.qtd}x</td>
+      <td style="padding:8px 4px;font-size:13px;font-weight:600;color:#22c55e;text-align:right;">R$ ${p.receita.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('relHorarios').innerHTML = d.horarios.map(h =>
+    `<div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:13px;color:#e8f0ff;">${h.hora}</span>
+        <span style="font-size:12px;color:var(--cyan);font-weight:600;">${h.pedidos} pedidos · ${h.pct}%</span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${h.pct}%;background:linear-gradient(90deg,#1a6aff,#40e0ff);border-radius:4px;"></div>
+      </div>
+    </div>`
+  ).join('');
+
   gerarInsights(d);
 }
 
@@ -1386,7 +1559,8 @@ function exportarPDF() {
   btn.textContent = 'Gerando...'; btn.disabled = true;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const d = dadosPeriodo[periodoAtivo];
+  const d = dadosRelatorioCache;
+  if (!d) { toast('Carregue o relatório antes de exportar.', 'error'); btn.innerHTML = 'Erro'; btn.disabled = false; return; }
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const now = new Date();
   const dataStr = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
