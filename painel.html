@@ -982,21 +982,55 @@ function mostrarNotifPedido(p){
 function fecharNotif(){ if(_nTimer){clearTimeout(_nTimer);_nTimer=null;} if(!_nEl)return; _nEl.classList.add('saindo'); setTimeout(()=>{_nEl?.remove();_nEl=null;},420); }
 
 // ══ REALTIME PEDIDOS ════════════════════════════════════════
+// Usa broadcast sem filtro + verifica tenant_id no handler
+// Isso evita o erro 400 do Supabase com filtros UUID no Realtime
 window._pedCh=null;
+let _ultimoIdPedido = 0;
+
 function iniciarRealtimePedidos(){
   if(!tid())return;
   if(window._pedCh){sb.removeChannel(window._pedCh);window._pedCh=null;}
-  window._pedCh=sb.channel('ped-'+tid()+'-'+Date.now())
-    .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`tenant_id=eq.${tid()}`},payload=>{
-      if(payload.eventType==='INSERT'){
-        tocarSomNovoPedido();
-        mostrarNotifPedido(payload.new||{});
-        toast('🛎️ Novo pedido chegou!','success',4000);
-      }
+
+  window._pedCh = sb.channel('ped-all-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'pedidos'},payload=>{
+      const p = payload.new || {};
+      // Filtra pelo tenant_id no lado do cliente
+      if(p.tenant_id !== tid()) return;
+      tocarSomNovoPedido();
+      mostrarNotifPedido(p);
+      toast('🛎️ Novo pedido chegou!','success',4000);
       carregarPedidos();
       atualizarDashboard();
     })
-    .subscribe(s=>{ if(s==='TIMED_OUT')setTimeout(iniciarRealtimePedidos,3000); });
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'pedidos'},payload=>{
+      const p = payload.new || {};
+      if(p.tenant_id !== tid()) return;
+      carregarPedidos();
+      atualizarDashboard();
+    })
+    .subscribe(s=>{
+      console.log('[SKYE Realtime]', s);
+      if(s==='TIMED_OUT') setTimeout(iniciarRealtimePedidos,3000);
+    });
+
+  // Polling de segurança a cada 15s caso o Realtime falhe
+  if(!window._pedPolling){
+    window._pedPolling = setInterval(async()=>{
+      if(!tid())return;
+      const {data}=await sb.from('pedidos').select('id,tenant_id,cliente,total,itens,criado_em')
+        .eq('tenant_id',tid()).order('id',{ascending:false}).limit(1);
+      if(!data||!data[0])return;
+      const novo = data[0];
+      if(novo.id > _ultimoIdPedido && _ultimoIdPedido !== 0){
+        tocarSomNovoPedido();
+        mostrarNotifPedido(novo);
+        toast('🛎️ Novo pedido chegou!','success',4000);
+        carregarPedidos();
+        atualizarDashboard();
+      }
+      _ultimoIdPedido = Math.max(_ultimoIdPedido, novo.id);
+    }, 15000);
+  }
 }
 
 // ══ RELATÓRIOS ══════════════════════════════════════════════
