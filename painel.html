@@ -677,24 +677,96 @@ function filtrarClientes(){const q=document.getElementById('searchCliente').valu
 function iniciarRealtimeClientes(){sb.channel('cli-rt').on('postgres_changes',{event:'*',schema:'public',table:'clientes'},()=>{carregarClientes();atualizarDashboard();}).subscribe();}
 
 // ══ PEDIDOS ═════════════════════════════════════════════════
-let filtroAtivo='todos',todosPedidos=[];
+let filtroAtivo='todos', todosPedidos=[], mostrandoTodosPedidos=false;
+const PEDIDOS_VISIVEIS = 4;
+
 async function carregarPedidos(){
   const{data,error}=await sb.from('pedidos').select('*').order('criado_em',{ascending:false});
   if(error){console.error(error);return;}
-  todosPedidos=data||[];atualizarStatsPedidos();
-  renderPedidosCards(filtroAtivo==='todos'?todosPedidos:todosPedidos.filter(p=>p.status===filtroAtivo));
+  todosPedidos=data||[];
+  atualizarStatsPedidos();
+  const base = filtroAtivo==='todos' ? todosPedidos : todosPedidos.filter(p=>p.status===filtroAtivo);
+  renderPedidosCards(base);
 }
 function atualizarStatsPedidos(){document.getElementById('statTotalPedidos').textContent=todosPedidos.length;document.getElementById('statPendentes').textContent=todosPedidos.filter(p=>p.status==='pendente').length;document.getElementById('statPreparando').textContent=todosPedidos.filter(p=>p.status==='preparando').length;document.getElementById('statEntregues').textContent=todosPedidos.filter(p=>p.status==='entregue').length;}
-function filtrarPedidos(f){filtroAtivo=f;document.querySelectorAll('.filtro-btn').forEach(b=>{b.classList.toggle('btn-primary',b.dataset.filtro===f);b.classList.toggle('btn-ghost',b.dataset.filtro!==f);});renderPedidosCards(f==='todos'?todosPedidos:todosPedidos.filter(p=>p.status===f));}
-function filtrarPedidosTexto(){const q=document.getElementById('searchPedido').value.toLowerCase();const base=filtroAtivo==='todos'?todosPedidos:todosPedidos.filter(p=>p.status===filtroAtivo);renderPedidosCards(base.filter(p=>(p.cliente||'').toLowerCase().includes(q)||String(p.id).includes(q)));}
+function filtrarPedidos(f){
+  filtroAtivo=f;
+  mostrandoTodosPedidos=false;
+  document.querySelectorAll('.filtro-btn').forEach(b=>{b.classList.toggle('btn-primary',b.dataset.filtro===f);b.classList.toggle('btn-ghost',b.dataset.filtro!==f);});
+  renderPedidosCards(f==='todos'?todosPedidos:todosPedidos.filter(p=>p.status===f));
+}
+function filtrarPedidosTexto(){
+  const q=document.getElementById('searchPedido').value.toLowerCase();
+  const base=filtroAtivo==='todos'?todosPedidos:todosPedidos.filter(p=>p.status===filtroAtivo);
+  // busca sempre mostra tudo
+  const resultado = base.filter(p=>(p.cliente||'').toLowerCase().includes(q)||String(p.id).includes(q));
+  renderPedidosCards(resultado, q.length > 0);
+}
 function fmtHora(s){if(!s)return'—';const d=new Date(s);return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
-function renderPedidosCards(lista){
-  const el=document.getElementById('pedidosCards');
-  if(!lista.length){el.innerHTML='<div class="empty-state" style="grid-column:1/-1"><p>Nenhum pedido encontrado.</p></div>';return;}
+
+function _buildCard(p) {
   const sm={pendente:{cor:'rgba(251,191,36,0.15)',borda:'rgba(251,191,36,0.4)',texto:'#fbbf24',label:'🕐 Pendente'},preparando:{cor:'rgba(64,224,255,0.10)',borda:'rgba(64,224,255,0.35)',texto:'#40e0ff',label:'🔧 Preparando'},entregue:{cor:'rgba(34,197,94,0.12)',borda:'rgba(34,197,94,0.35)',texto:'#22c55e',label:'✅ Entregue'},cancelado:{cor:'rgba(239,68,68,0.12)',borda:'rgba(239,68,68,0.35)',texto:'#ef4444',label:'❌ Cancelado'}};
-  const prox={pendente:'preparando',preparando:'entregue'};const lp={pendente:'Iniciar Preparo',preparando:'Marcar Entregue'};
-  el.innerHTML=lista.map(p=>{const st=sm[p.status]||sm.pendente;const itens=Array.isArray(p.itens)?p.itens:[];const ih=itens.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(200,220,255,0.7);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span>${i.quantidade}x ${i.nome}</span><span style="color:var(--cyan)">R$ ${(i.precoFinal||0).toFixed(2).replace('.',',')}</span></div>`).join('');const tp=!!prox[p.status];
-  return`<div style="background:var(--glass2);border:1px solid ${st.borda};border-radius:14px;padding:16px;position:relative;overflow:hidden;"><div style="position:absolute;top:0;left:0;right:0;height:3px;background:${st.texto};opacity:.6;"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:15px;color:#fff">#${p.id}</span><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${st.cor};color:${st.texto};border:1px solid ${st.borda}">${st.label}</span></div><span style="font-size:11px;color:var(--muted)">${fmtHora(p.criado_em)}</span></div><div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:600;color:#e8f0ff;">👤 ${p.cliente||'—'}</div><div style="font-size:12px;color:var(--muted);">📍 ${p.endereco||'—'}</div>${p.observacao?`<div style="font-size:11px;color:rgba(180,210,255,0.4);margin-top:3px;">📝 ${p.observacao}</div>`:''}</div><div style="max-height:100px;overflow-y:auto;margin-bottom:10px;">${ih||'<span style="font-size:12px;color:var(--muted)">Sem itens</span>'}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;"><span style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:18px;color:var(--cyan)">R$ ${(p.total||0).toFixed(2).replace('.',',')}</span><div style="display:flex;gap:6px;">${tp?`<button onclick="atualizarStatusPedido(${p.id},'${prox[p.status]}')" style="padding:5px 12px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#1a6aff,#6020cc);border:none;color:#fff;border-radius:8px;cursor:pointer;">${lp[p.status]}</button>`:''} ${p.status!=='cancelado'&&p.status!=='entregue'?`<button onclick="atualizarStatusPedido(${p.id},'cancelado')" style="padding:5px 10px;font-size:11px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;cursor:pointer;">Cancelar</button>`:''}</div></div></div>`;}).join('');
+  const prox={pendente:'preparando',preparando:'entregue'};
+  const lp={pendente:'Iniciar Preparo',preparando:'Marcar Entregue'};
+  const st=sm[p.status]||sm.pendente;
+  const itens=Array.isArray(p.itens)?p.itens:[];
+  const ih=itens.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(200,220,255,0.7);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span>${i.quantidade}x ${i.nome}</span><span style="color:var(--cyan)">R$ ${(i.precoFinal||0).toFixed(2).replace('.',',')}</span></div>`).join('');
+  const tp=!!prox[p.status];
+  return `<div style="background:var(--glass2);border:1px solid ${st.borda};border-radius:14px;padding:16px;position:relative;overflow:hidden;"><div style="position:absolute;top:0;left:0;right:0;height:3px;background:${st.texto};opacity:.6;"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:15px;color:#fff">#${p.id}</span><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${st.cor};color:${st.texto};border:1px solid ${st.borda}">${st.label}</span></div><span style="font-size:11px;color:var(--muted)">${fmtHora(p.criado_em)}</span></div><div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:600;color:#e8f0ff;">👤 ${p.cliente||'—'}</div><div style="font-size:12px;color:var(--muted);">📍 ${p.endereco||'—'}</div>${p.observacao?`<div style="font-size:11px;color:rgba(180,210,255,0.4);margin-top:3px;">📝 ${p.observacao}</div>`:''}</div><div style="max-height:100px;overflow-y:auto;margin-bottom:10px;">${ih||'<span style="font-size:12px;color:var(--muted)">Sem itens</span>'}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;"><span style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:18px;color:var(--cyan)">R$ ${(p.total||0).toFixed(2).replace('.',',')}</span><div style="display:flex;gap:6px;">${tp?`<button onclick="atualizarStatusPedido(${p.id},'${prox[p.status]}')" style="padding:5px 12px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#1a6aff,#6020cc);border:none;color:#fff;border-radius:8px;cursor:pointer;">${lp[p.status]}</button>`:''} ${p.status!=='cancelado'&&p.status!=='entregue'?`<button onclick="atualizarStatusPedido(${p.id},'cancelado')" style="padding:5px 10px;font-size:11px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;cursor:pointer;">Cancelar</button>`:''}</div></div></div>`;
+}
+
+function renderPedidosCards(lista, forcarTodos=false) {
+  const el = document.getElementById('pedidosCards');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Nenhum pedido encontrado.</p></div>';
+    return;
+  }
+
+  const exibindoTodos = forcarTodos || mostrandoTodosPedidos;
+  const visiveis = exibindoTodos ? lista : lista.slice(0, PEDIDOS_VISIVEIS);
+  const ocultos  = lista.length - PEDIDOS_VISIVEIS;
+
+  let html = visiveis.map(_buildCard).join('');
+
+  // Botão expandir/recolher (só aparece se tiver mais que 4)
+  if (lista.length > PEDIDOS_VISIVEIS && !forcarTodos) {
+    if (!exibindoTodos) {
+      html += `
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0;">
+          <div style="width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(80,160,255,0.2),transparent);"></div>
+          <button onclick="mostrandoTodosPedidos=true;renderPedidosCards(${JSON.stringify([]).replace(/"/g,"'")})" 
+            style="display:none" id="_btnExpandHelper"></button>
+          <button onclick="expandirPedidos()" style="display:flex;align-items:center;gap:8px;padding:10px 28px;background:rgba(26,106,255,0.1);border:1px solid rgba(26,106,255,0.25);color:#60a5fa;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:'Sora',sans-serif;transition:all .2s;" onmouseover="this.style.background='rgba(26,106,255,0.2)'" onmouseout="this.style.background='rgba(26,106,255,0.1)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            Ver mais ${ocultos} pedido${ocultos!==1?'s':''} anteriores
+          </button>
+        </div>`;
+    } else {
+      html += `
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0;">
+          <div style="width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(80,160,255,0.2),transparent);"></div>
+          <button onclick="recolherPedidos()" style="display:flex;align-items:center;gap:8px;padding:10px 28px;background:rgba(80,80,80,0.1);border:1px solid rgba(255,255,255,0.1);color:var(--muted);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:'Sora',sans-serif;transition:all .2s;" onmouseover="this.style.background='rgba(80,80,80,0.2)'" onmouseout="this.style.background='rgba(80,80,80,0.1)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+            Recolher — mostrar apenas os 4 mais recentes
+          </button>
+        </div>`;
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+function expandirPedidos() {
+  mostrandoTodosPedidos = true;
+  const base = filtroAtivo==='todos' ? todosPedidos : todosPedidos.filter(p=>p.status===filtroAtivo);
+  renderPedidosCards(base);
+}
+function recolherPedidos() {
+  mostrandoTodosPedidos = false;
+  const base = filtroAtivo==='todos' ? todosPedidos : todosPedidos.filter(p=>p.status===filtroAtivo);
+  renderPedidosCards(base);
+  // scrolla suavemente de volta ao topo da seção de pedidos
+  document.getElementById('pedidosCards').scrollIntoView({behavior:'smooth', block:'start'});
 }
 async function atualizarStatusPedido(id,novoStatus){const{error}=await sb.from('pedidos').update({status:novoStatus}).eq('id',id);if(error){toast('Erro.','error');return;}toast(`Status: "${novoStatus}"`,'success');await carregarPedidos();}
 
