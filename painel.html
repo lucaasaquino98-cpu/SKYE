@@ -160,11 +160,13 @@ tbody td{padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8);}
 .rt-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25);}
 .rt-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 1.5s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-.skye-notif-card{position:fixed;top:80px;right:28px;z-index:99999;width:340px;background:rgba(2,4,14,0.96);backdrop-filter:blur(24px);border:1px solid rgba(64,224,255,0.35);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.7);animation:skyeIn .55s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+
+/* ── Notificação card ── */
+.skye-notif-card{position:fixed;top:80px;right:28px;z-index:99999;width:340px;background:rgba(2,4,14,0.96);backdrop-filter:blur(24px);border:1px solid rgba(64,224,255,0.35);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(64,224,255,0.08);animation:skyeIn .55s cubic-bezier(0.34,1.56,0.64,1) forwards;}
 .skye-notif-card.saindo{animation:skyeOut .4s ease forwards !important;}
 @keyframes skyeIn{from{opacity:0;transform:translateX(60px) scale(0.9);}to{opacity:1;transform:translateX(0) scale(1);}}
 @keyframes skyeOut{to{opacity:0;transform:translateX(60px) scale(0.9);}}
-.skye-notif-timer{height:3px;background:linear-gradient(90deg,#1a6aff,#40e0ff,#a060ff);animation:timerBar var(--nd,8s) linear forwards;transform-origin:left;}
+.skye-notif-timer{height:3px;background:linear-gradient(90deg,#1a6aff,#40e0ff,#a060ff);animation:timerBar var(--nd,9s) linear forwards;transform-origin:left;}
 @keyframes timerBar{from{transform:scaleX(1);}to{transform:scaleX(0);}}
 .skye-notif-accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#1a6aff,#40e0ff,#a060ff);}
 .skye-notif-body{padding:16px 18px 16px 20px;display:flex;gap:14px;align-items:flex-start;}
@@ -181,6 +183,12 @@ tbody td{padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8);}
 .skye-notif-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
 .skye-notif-ver{font-size:11px;color:rgba(64,224,255,0.6);cursor:pointer;background:none;border:none;font-family:'Sora',sans-serif;padding:4px 8px;border-radius:6px;transition:all .2s;}
 .skye-notif-ver:hover{color:#40e0ff;}
+
+/* ── Status realtime indicator ── */
+#realtimeStatus{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;transition:all .3s;}
+#realtimeStatus.conectado{background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25);}
+#realtimeStatus.conectando{background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);}
+#realtimeStatus.desconectado{background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);}
 </style>
 </head>
 <body>
@@ -248,6 +256,8 @@ tbody td{padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8);}
     <span class="topbar-title" id="topbarTitle">Dashboard</span>
   </div>
   <div class="topbar-right">
+    <!-- CORREÇÃO: indicador de status do realtime visível -->
+    <span id="realtimeStatus" class="conectando">⏳ Conectando...</span>
     <span class="rt-badge"><span class="rt-dot"></span>Ao vivo</span>
     <span class="topbar-time" id="topbarTime"></span>
     <div class="topbar-avatar" id="topbarAvatar" title="Sair" onclick="fazerLogout()">?</div>
@@ -466,18 +476,18 @@ tbody td{padding:12px 16px;font-size:13.5px;color:rgba(200,220,255,0.8);}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// CONFIG — edite apenas este bloco para cada novo cliente
+// CONFIG
 // ══════════════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://qgnuzfnrhntzlvrjslpy.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbnV6Zm5yaG50emx2cmpzbHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTQ2MzAsImV4cCI6MjA4ODAzMDYzMH0.zF-bhl4ybTvgzG5G0PM4N2ZToJ--02nd8uAverSunt4';
 
-// ── Supabase client ─────────────────────────────────────────
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  realtime: { params: { eventsPerSecond: 10 } }
+});
 
-// ── Usuário logado ──────────────────────────────────────────
 let currentUser = null;
 
-// ── Inicialização ───────────────────────────────────────────
+// ══ INICIALIZAÇÃO ═══════════════════════════════════════════
 (async function iniciar() {
   const { data } = await sb.auth.getSession();
   if (!data?.session) { window.location.href = 'index.html'; return; }
@@ -488,15 +498,20 @@ let currentUser = null;
   document.getElementById('topbarAvatar').textContent = ini;
   document.getElementById('tenantName').textContent   = email.split('@')[0];
   document.getElementById('tenantEmail').textContent  = email;
-  atualizarDashboard();
-  carregarProdutos();
-  carregarClientes();
-  carregarPedidos();
-  carregarStatusLoja();
-  carregarConfig();
+
+  await Promise.all([
+    atualizarDashboard(),
+    carregarProdutos(),
+    carregarClientes(),
+    carregarPedidos(),
+    carregarStatusLoja(),
+    carregarConfig(),
+  ]);
+
+  // CORREÇÃO: inicia realtime DEPOIS dos dados carregados
+  iniciarRealtimePedidos();
   iniciarRealtimeProdutos();
   iniciarRealtimeClientes();
-  iniciarRealtimePedidos();
   iniciarRealtimeStatusLoja();
   carregarRelatorio('semanal');
 })();
@@ -684,42 +699,160 @@ function renderPedidosCards(lista){
 async function atualizarStatusPedido(id,novoStatus){const{error}=await sb.from('pedidos').update({status:novoStatus}).eq('id',id);if(error){toast('Erro.','error');return;}toast(`Status: "${novoStatus}"`,'success');await carregarPedidos();}
 
 // ══ SOM ════════════════════════════════════════════════════
-window._audioCtx=null;
-function _getAudioCtx(){if(!window._audioCtx)window._audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(window._audioCtx.state==='suspended')window._audioCtx.resume();return window._audioCtx;}
-document.addEventListener('click',()=>{if(!window._audioCtx)_getAudioCtx();});
-function tocarSomNovoPedido(){try{const ctx=_getAudioCtx(),now=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.setValueAtTime(880,now);o.frequency.exponentialRampToValueAtTime(1100,now+0.12);g.gain.setValueAtTime(0.25,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.4);o.start(now);o.stop(now+0.4);}catch(e){}}
+// CORREÇÃO: AudioContext criado sob demanda com unlock automático
+let _audioCtx = null;
 
-// ══ NOTIFICAÇÃO ════════════════════════════════════════════
-let _nEl=null,_nTimer=null;
-function mostrarNotifPedido(p){
-  if(_nTimer){clearTimeout(_nTimer);_nTimer=null;}if(_nEl){_nEl.remove();_nEl=null;}
-  const id=p.id||'?',cliente=p.cliente||'Cliente',total=parseFloat(p.total||0).toFixed(2).replace('.',','),hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),itens=Array.isArray(p.itens)?p.itens:[],n=itens.reduce((a,i)=>a+(i.quantidade||1),0);
-  const card=document.createElement('div');card.className='skye-notif-card';card.style.setProperty('--nd','9s');
-  card.innerHTML=`<div class="skye-notif-timer"></div><div class="skye-notif-accent"></div><div class="skye-notif-body"><div class="skye-notif-icon">🛎️</div><div class="skye-notif-content"><div class="skye-notif-label">SKYE · Novo Pedido</div><div class="skye-notif-titulo">#${id} — ${cliente}</div><div class="skye-notif-linha"><strong>${hora}</strong></div><div class="skye-notif-linha"><strong>${n}</strong> ${n===1?'item':'itens'}</div><div class="skye-notif-total">R$ ${total}<small>BRL</small></div></div></div><div class="skye-notif-footer"><span class="skye-notif-badge">Pedido recebido</span><button class="skye-notif-ver" onclick="navTo('pedidos');fecharNotif()">Ver →</button></div><button class="skye-notif-close" onclick="fecharNotif()">×</button>`;
-  document.body.appendChild(card);_nEl=card;_nTimer=setTimeout(fecharNotif,9000);
+function _getAudioCtx() {
+  if (!_audioCtx) {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return _audioCtx;
 }
-function fecharNotif(){if(_nTimer){clearTimeout(_nTimer);_nTimer=null;}if(!_nEl)return;_nEl.classList.add('saindo');setTimeout(()=>{_nEl?.remove();_nEl=null;},420);}
 
-// ══ REALTIME PEDIDOS — SEM FILTRO (projeto isolado) ════════
-// Cada cliente tem seu próprio Supabase, então não precisa filtrar
-window._pedCh=null;
-function iniciarRealtimePedidos(){
-  if(window._pedCh){sb.removeChannel(window._pedCh);window._pedCh=null;}
-  window._pedCh=sb.channel('pedidos-rt-'+Date.now())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'pedidos'},payload=>{
-      console.log('[SKYE] Novo pedido via Realtime:', payload.new);
+// Desbloqueia o AudioContext no primeiro clique/toque do usuário
+function _unlockAudio() {
+  const ctx = _getAudioCtx();
+  if (ctx.state === 'suspended') {
+    ctx.resume();
+  }
+}
+document.addEventListener('click', _unlockAudio, { once: false });
+document.addEventListener('touchstart', _unlockAudio, { once: false });
+
+function tocarSomNovoPedido() {
+  try {
+    const ctx = _getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const now = ctx.currentTime;
+
+    // Três beeps ascendentes — inconfundível
+    [[0, 660], [0.18, 880], [0.36, 1100]].forEach(([t, freq]) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, now + t);
+      g.gain.setValueAtTime(0, now + t);
+      g.gain.linearRampToValueAtTime(0.3, now + t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, now + t + 0.25);
+      o.start(now + t);
+      o.stop(now + t + 0.25);
+    });
+  } catch (e) {
+    console.warn('[SOM]', e);
+  }
+}
+
+// ══ NOTIFICAÇÃO CARD ═══════════════════════════════════════
+let _nEl = null, _nTimer = null;
+
+function mostrarNotifPedido(p) {
+  // Remove notif anterior se existir
+  if (_nTimer) { clearTimeout(_nTimer); _nTimer = null; }
+  if (_nEl) { _nEl.remove(); _nEl = null; }
+
+  const id      = p.id || '?';
+  const cliente = p.cliente || 'Cliente';
+  const total   = parseFloat(p.total || 0).toFixed(2).replace('.', ',');
+  const hora    = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const itens   = Array.isArray(p.itens) ? p.itens : [];
+  const n       = itens.reduce((a, i) => a + (i.quantidade || 1), 0);
+
+  const card = document.createElement('div');
+  card.className = 'skye-notif-card';
+  card.style.setProperty('--nd', '9s');
+  card.innerHTML = `
+    <div class="skye-notif-timer"></div>
+    <div class="skye-notif-accent"></div>
+    <div class="skye-notif-body">
+      <div class="skye-notif-icon">🛎️</div>
+      <div class="skye-notif-content">
+        <div class="skye-notif-label">SKYE · Novo Pedido</div>
+        <div class="skye-notif-titulo">#${id} — ${cliente}</div>
+        <div class="skye-notif-linha"><strong>${hora}</strong></div>
+        <div class="skye-notif-linha"><strong>${n}</strong> ${n === 1 ? 'item' : 'itens'}</div>
+        <div class="skye-notif-total">R$ ${total}<small>BRL</small></div>
+      </div>
+    </div>
+    <div class="skye-notif-footer">
+      <span class="skye-notif-badge">✔ Pedido recebido</span>
+      <button class="skye-notif-ver" onclick="navTo('pedidos');fecharNotif()">Ver pedidos →</button>
+    </div>
+    <button class="skye-notif-close" onclick="fecharNotif()">×</button>`;
+
+  document.body.appendChild(card);
+  _nEl = card;
+  _nTimer = setTimeout(fecharNotif, 9000);
+}
+
+function fecharNotif() {
+  if (_nTimer) { clearTimeout(_nTimer); _nTimer = null; }
+  if (!_nEl) return;
+  _nEl.classList.add('saindo');
+  setTimeout(() => { _nEl?.remove(); _nEl = null; }, 420);
+}
+
+// ══ REALTIME PEDIDOS ═══════════════════════════════════════
+// CORREÇÃO PRINCIPAL: canal único com reconexão automática
+// e indicador de status visível no topbar
+let _pedCh = null;
+let _realtimeTentativas = 0;
+
+function setRealtimeStatus(status) {
+  const el = document.getElementById('realtimeStatus');
+  if (!el) return;
+  el.className = status;
+  el.textContent = {
+    conectado:    '● Realtime ativo',
+    conectando:   '⏳ Conectando...',
+    desconectado: '✖ Offline',
+  }[status] || status;
+}
+
+function iniciarRealtimePedidos() {
+  // Remove canal antigo se existir
+  if (_pedCh) {
+    sb.removeChannel(_pedCh);
+    _pedCh = null;
+  }
+
+  setRealtimeStatus('conectando');
+
+  _pedCh = sb.channel('pedidos-live', {
+    config: { broadcast: { self: false } }
+  });
+
+  _pedCh
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, payload => {
+      console.log('[SKYE] 🛎️ Novo pedido:', payload.new);
       tocarSomNovoPedido();
-      mostrarNotifPedido(payload.new||{});
-      toast('🛎️ Novo pedido chegou!','success',4000);
+      mostrarNotifPedido(payload.new || {});
+      toast('🛎️ Novo pedido chegou!', 'success', 5000);
       carregarPedidos();
       atualizarDashboard();
     })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'pedidos'},()=>{
-      carregarPedidos();atualizarDashboard();
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos' }, () => {
+      carregarPedidos();
+      atualizarDashboard();
     })
-    .subscribe(s=>{
-      console.log('[SKYE Realtime]',s);
-      if(s==='TIMED_OUT')setTimeout(iniciarRealtimePedidos,3000);
+    .subscribe(status => {
+      console.log('[SKYE Realtime status]', status);
+
+      if (status === 'SUBSCRIBED') {
+        setRealtimeStatus('conectado');
+        _realtimeTentativas = 0;
+        toast('✅ Realtime conectado!', 'success', 2000);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setRealtimeStatus('desconectado');
+        _realtimeTentativas++;
+        const delay = Math.min(3000 * _realtimeTentativas, 15000);
+        console.warn(`[SKYE] Reconectando em ${delay}ms (tentativa ${_realtimeTentativas})...`);
+        setTimeout(iniciarRealtimePedidos, delay);
+      } else {
+        setRealtimeStatus('conectando');
+      }
     });
 }
 
